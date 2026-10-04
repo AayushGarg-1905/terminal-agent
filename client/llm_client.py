@@ -3,7 +3,9 @@ from openai import AsyncOpenAI
 from typing import Any
 from client.response_classes import TextDelta, TokenUsage, StreamEvent, StreamEventType
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 class LLMClient:
     def __init__(self):
@@ -13,7 +15,7 @@ class LLMClient:
         if self._client is None:
             self._client = AsyncOpenAI(
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=os.environ.get("LLM_PROVIDER_BASE_URL")
+                base_url=os.environ.get("LLM_PROVIDER_BASE_URL"),
             )
         return self._client
 
@@ -22,19 +24,57 @@ class LLMClient:
             self._client.close()
             self._client = None
 
-    async def chat_completion(self, messages:list[dict[str,Any]], stream:bool=True):
+    async def chat_completion(
+        self, messages: list[dict[str, Any]], stream: bool = True
+    ):
         client = self.get_client()
         kwargs = {
             "model": os.environ.get("DEFAULT_MODEL"),
-            "messages":messages,
-            "stream":stream
+            "messages": messages,
+            "stream": stream,
         }
         if stream:
-            pass
+            async for event in self._stream_response(client, kwargs):
+                yield event
         else:
-            event = await self._non_stream_response(client,kwargs)
+            event = await self._non_stream_response(client, kwargs)
             yield event
         return
+
+    async def _stream_response(self, client, kwargs):
+        response = await client.chat.completions.create(**kwargs)
+        finish_reason: str | None = None
+        token_usage: TokenUsage | None = None
+
+        async for response_chunk in response:
+            if response_chunk.usage:
+                token_usage = TokenUsage(
+                    prompt_tokens=response_chunk.usage.prompt_tokens,
+                    completion_tokens=response_chunk.usage.completion_tokens,
+                    total_tokens=response_chunk.usage.total_tokens,
+                    cached_tokens=response_chunk.usage.prompt_tokens_details.cached_tokens,
+                )
+
+            if not response_chunk.choices:
+                continue
+
+            choice = response_chunk.choices[0]
+            choice_delta = choice.delta
+
+            if choice.finish_reason:
+                finish_reason = choice.finish_reason
+
+            if choice_delta.content:
+                yield StreamEvent(
+                    type=StreamEventType.TEXT_DELTA,
+                    text_delta=TextDelta(choice_delta.content),
+                )
+
+        yield StreamEvent(
+            type=StreamEventType.MESSAGE_COMPLETE,
+            finish_reason=finish_reason,
+            token_usage=token_usage,
+        )
 
     async def _non_stream_response(self, client, kwargs):
         response = await client.chat.completions.create(**kwargs)
@@ -43,22 +83,20 @@ class LLMClient:
 
         text_delta = None
         if message.content:
-            text_delta = TextDelta(content = message.content)
+            text_delta = TextDelta(content=message.content)
 
         token_usage = None
         if response.usage:
             token_usage = TokenUsage(
-                prompt_tokens= response.usage.prompt_tokens,
-                completion_tokens= response.usage.completion_tokens,
-                total_tokens= response.usage.total_tokens,
-                cached_tokens= response.usage.prompt_tokens_details.cached_tokens
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                cached_tokens=response.usage.prompt_tokens_details.cached_tokens,
             )
 
         return StreamEvent(
             type=StreamEventType.MESSAGE_COMPLETE,
-            text_delta= text_delta,
-            finish_reason= choice.finish_reason,
-            token_usage=token_usage
+            text_delta=text_delta,
+            finish_reason=choice.finish_reason,
+            token_usage=token_usage,
         )
-
-        
