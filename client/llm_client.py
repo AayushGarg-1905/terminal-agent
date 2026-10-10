@@ -23,7 +23,7 @@ class LLMClient:
 
     async def close(self):
         if self._client:
-            self._client.close()
+            await self._client.close()
             self._client = None
 
     async def chat_completion(
@@ -47,7 +47,7 @@ class LLMClient:
             except RateLimitError as e:
                 if attempt < self._max_retries:
                     wait_time = 2**attempt
-                    asyncio.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                 else:
                     yield StreamEvent(
                         type=StreamEventType.ERROR, error=f"Rate limit erro: {e}"
@@ -56,7 +56,7 @@ class LLMClient:
             except APIConnectionError as e:
                 if attempt < self._max_retries:
                     wait_time = 2**attempt
-                    asyncio.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                 else:
                     yield StreamEvent(
                         type=StreamEventType.ERROR, error=f"API Connection error: {e}"
