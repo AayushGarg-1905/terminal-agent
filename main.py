@@ -39,7 +39,9 @@ class CLI:
                 if assistant_streaming:
                     self.ui.end_assistant()
                     assistant_streaming = False
-        
+            elif event.type == AgentEventType.AGENT_ERROR:
+                error = event.data.get("error","unknown error occured")
+                self.ui.error_assistant(error)
         return final_response
             
                     
