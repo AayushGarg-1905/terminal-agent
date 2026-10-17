@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 
 from rich.console import Console
 from rich.theme import Theme
@@ -214,3 +216,56 @@ class UI:
         # Remove the stored arguments now that this call has completed.
         self._tool_args_by_call_id.pop(call_id, None)
 
+    def print_welcome(self) -> None:
+        model = os.environ.get("DEFAULT_MODEL", "unknown")
+
+        cwd = str(Path.cwd())
+        home = str(Path.home())
+        if cwd == home:
+            cwd = "~"
+        elif cwd.startswith(home + os.sep):
+            cwd = "~" + cwd[len(home) :]
+
+        logo = Text(justify="center")
+        logo.append("██████╗ ███████╗██╗   ██╗\n", style="highlight")
+        logo.append("██╔══██╗██╔════╝██║   ██║\n", style="highlight")
+        logo.append("██║  ██║█████╗  ██║   ██║\n", style="highlight")
+        logo.append("██║  ██║██╔══╝  ╚██╗ ██╔╝\n", style="highlight")
+        logo.append("██████╔╝███████╗ ╚████╔╝ \n", style="highlight")
+        logo.append("╚═════╝ ╚══════╝  ╚═══╝  ", style="highlight")
+
+        info = Table.grid(padding=(0, 1))
+        info.add_column(style="muted", no_wrap=True)
+        info.add_column()
+        info.add_row(Text("Agent", style="muted"), Text("terminal-agent", style="assistant"))
+        info.add_row(Text("Model", style="muted"), Text(model, style="info"))
+        info.add_row(Text("cwd", style="muted"), Text(cwd, style="code"))
+
+        layout = Table.grid(padding=(0, 1))
+        layout.add_row(logo)
+        layout.add_row(Text())
+        layout.add_row(info)
+
+        self.console.print()
+        self.console.print(
+            Panel(
+                layout,
+                title=Text(" Welcome ", style="bold"),
+                subtitle=Text("AI coding assistant", style="dim"),
+                border_style="border",
+                padding=(1, 2),
+                expand=False,
+            )
+        )
+        self.console.print()
+        self.console.print(Text("Tips for getting started:", style="muted"))
+        for tip in (
+            "Ask me to read, write, or edit files in your project.",
+            "Ask me to run shell commands or search the web.",
+            "Use /exit (or Ctrl-D) to quit at any time.",
+        ):
+            line = Text()
+            line.append("  - ", style="highlight")
+            line.append(tip, style="dim")
+            self.console.print(line)
+        self.console.print()

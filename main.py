@@ -22,6 +22,22 @@ class CLI:
             self.agent = agent
             return await self._process_message(message)
 
+    async def run_interactive(self):
+        self.ui.print_welcome()
+        async with Agent() as agent:
+            self.agent = agent
+            while True:
+                try:
+                    user_input = console.input("\n[user]>[/user]").strip()
+                    if not user_input:
+                        continue
+                    await self._process_message(user_input)
+                except KeyboardInterrupt:
+                    console.print("\n[dim] Use /exit to quit[/dim]")
+                except EOFError:
+                    break
+        console.print("\n[dim]Goodbye!![/dim]")
+
     async def _process_message(self, message: str):
         if not self.agent:
             return None
@@ -84,6 +100,8 @@ def main(prompt: str | None):
         result = asyncio.run(cli.run_single(prompt))
         if result is None:
             sys.exit(1)
+    else:
+        asyncio.run(cli.run_interactive())
 
 
 main()
