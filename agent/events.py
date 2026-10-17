@@ -3,58 +3,79 @@ from dataclasses import dataclass
 from typing import Any
 
 from client.response_classes import TokenUsage
+from tools.base import ToolResult
+
 
 class AgentEventType:
-    AGENT_START="agent_start"
-    AGENT_END="agent_end"
-    AGENT_ERROR="agent_error"
+    AGENT_START = "agent_start"
+    AGENT_END = "agent_end"
+    AGENT_ERROR = "agent_error"
 
-    TEXT_DELTA="text_delta"
-    TEXT_COMPLETE="text_complete"
+    TEXT_DELTA = "text_delta"
+    TEXT_COMPLETE = "text_complete"
+
+    TOOL_CALL_START = "tool_call_start"
+    TOOL_CALL_COMPLETE = "tool_call_complete"
+
 
 @dataclass
 class AgentEvent:
     type: AgentEventType
-    data: dict[str,Any]
-
-
-    @classmethod
-    def agent_start(cls, message:str):
-        return cls(
-            type=AgentEventType.AGENT_START,
-            data={"message":message}
-        )
+    data: dict[str, Any]
 
     @classmethod
-    def agent_end(cls,response:str|None = None, tokenUsage: TokenUsage | None = None):
+    def agent_start(cls, message: str):
+        return cls(type=AgentEventType.AGENT_START, data={"message": message})
+
+    @classmethod
+    def agent_end(
+        cls, response: str | None = None, tokenUsage: TokenUsage | None = None
+    ):
         return cls(
             type=AgentEventType.AGENT_END,
             data={
-                "response":response,
-                "usage": tokenUsage.__dict__ if tokenUsage else None
-            }
+                "response": response,
+                "usage": tokenUsage.__dict__ if tokenUsage else None,
+            },
         )
 
     @classmethod
-    def agent_error(cls, error:str, details: dict[str,Any] | None = None):
+    def agent_error(cls, error: str, details: dict[str, Any] | None = None):
         return cls(
             type=AgentEventType.AGENT_ERROR,
+            data={"error": error, "details": details or {}},
+        )
+
+    @classmethod
+    def text_delta(cls, content: str):
+        return cls(type=AgentEventType.TEXT_DELTA, data={"content": content})
+
+    @classmethod
+    def text_complete(cls, content: str):
+        return cls(type=AgentEventType.TEXT_COMPLETE, data={"content": content})
+
+    @classmethod
+    def tool_call_start(cls, call_id: str, name: str, arguments: dict[str, Any]):
+        return cls(
+            type=AgentEventType.TOOL_CALL_START,
             data={
-                "error":error,
-                "details":details or {}
-            }
+                "call_id": call_id,
+                "name": name,
+                "arguments": arguments,
+            },
         )
 
     @classmethod
-    def text_delta(cls,content:str):
+    def tool_call_complete(cls, call_id: str, name: str, result:ToolResult):
         return cls(
-            type=AgentEventType.TEXT_DELTA,
-            data={"content":content}
-        )
-
-    @classmethod
-    def text_complete(cls, content:str):
-        return cls(
-            type=AgentEventType.TEXT_COMPLETE,
-            data={"content":content}
+            type=AgentEventType.TOOL_CALL_COMPLETE,
+            data={
+                "call_id": call_id,
+                "name": name,
+                "success":result.success,
+                "output":result.output,
+                "error":result.error,
+                "metadata":result.metadata,
+                "truncated":result.truncated
+            },
         )
