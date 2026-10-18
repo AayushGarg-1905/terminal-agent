@@ -13,19 +13,22 @@ from client.response_classes import (
 from dotenv import load_dotenv
 import asyncio
 
+from config.config import Config
+
 load_dotenv()
 
 
 class LLMClient:
-    def __init__(self):
+    def __init__(self, config:Config):
         self._client: AsyncOpenAI | None = None
         self._max_retries: int = 3
+        self.config = config
 
     def get_client(self):
         if self._client is None:
             self._client = AsyncOpenAI(
-                api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=os.environ.get("LLM_PROVIDER_BASE_URL"),
+                api_key=self.config.api_key,
+                base_url=self.config.base_url,
             )
         return self._client
 
@@ -61,7 +64,7 @@ class LLMClient:
     ):
         client = self.get_client()
         kwargs = {
-            "model": os.environ.get("DEFAULT_MODEL"),
+            "model": self.config.model_name,
             "messages": messages,
             "stream": stream,
         }

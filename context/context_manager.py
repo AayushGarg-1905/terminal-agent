@@ -3,6 +3,7 @@ from typing import Any
 from dotenv import load_dotenv
 from dataclasses import dataclass, field
 import os
+from config.config import Config
 from prompts.system_prompt import get_system_prompt
 from utils.tokenizer import count_tokens
 
@@ -30,9 +31,10 @@ class MessageItem:
 
 
 class ContextManager:
-    def __init__(self):
-        self._system_prompt = get_system_prompt()
-        self._model_name = os.environ.get("DEFAULT_MODEL")
+    def __init__(self,config:Config):
+        self.config = config
+        self._system_prompt = get_system_prompt(config=config)
+        self._model_name = self.config.model_name
         self._messages: list[MessageItem] = []
 
     def add_user_message(self, content:str):

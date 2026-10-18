@@ -10,6 +10,8 @@ from typing import Any
 from rich.panel import Panel
 from rich.table import Table
 
+from config.config import Config
+
 AGENT_THEME = Theme(
     {
         # General
@@ -49,11 +51,11 @@ def get_console():
 
 
 class UI:
-    def __init__(self, console: Console | None = None):
+    def __init__(self, config:Config,console: Console | None = None):
         self.console = console or get_console()
         self._assistant_stream_open = False
         self._tool_args_by_call_id: dict[str, dict[str, Any]] = {}
-
+        self.config = config
     def begin_assistant(self):
         self.console.print()
         self.console.print(Rule(Text("Assistant", style="assistant")))
@@ -217,9 +219,9 @@ class UI:
         self._tool_args_by_call_id.pop(call_id, None)
 
     def print_welcome(self) -> None:
-        model = os.environ.get("DEFAULT_MODEL", "unknown")
+        model = self.config.model_name
 
-        cwd = str(Path.cwd())
+        cwd = str(self.config.cwd)
         home = str(Path.home())
         if cwd == home:
             cwd = "~"

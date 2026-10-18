@@ -6,25 +6,28 @@ from client.llm_client import LLMClient
 import click
 import asyncio
 from typing import Any
-
+from pathlib import Path
+from config.config import Config
+from config.loader import load_config
 from ui.ui import UI, get_console
 
 console = get_console()
 
 
 class CLI:
-    def __init__(self):
+    def __init__(self,config:Config):
         self.agent: Agent | None = None
-        self.ui = UI(console)
+        self.config = config
+        self.ui = UI(config,console)
 
     async def run_single(self, message: str):
-        async with Agent() as agent:
+        async with Agent(self.config) as agent:
             self.agent = agent
             return await self._process_message(message)
 
     async def run_interactive(self):
         self.ui.print_welcome()
-        async with Agent() as agent:
+        async with Agent(self.config) as agent:
             self.agent = agent
             while True:
                 try:
@@ -93,9 +96,20 @@ class CLI:
 
 @click.command()
 @click.option("--prompt", required=False)
-def main(prompt: str | None):
-    cli = CLI()
+@click.option("--cwd","--c",type=click.Path(exists=True, file_okay=False, path_type=Path),help="Current working directory")
+def main(prompt: str | None,cwd:Path | None):
+    try:
+        config = load_config(cwd=cwd)
+    except Exception as e:
+        console.print(f"Configuration error: {e}", style="error")
+        sys.exit(1)
+    config_errors = config.validate()
+    if config_errors:
+        for error in config_errors:
+            console.print(f"Configuration error: {error}", style="error")
+        sys.exit(1)
     # messages = [{"role":"user","content":prompt}]
+    cli = CLI(config)
     if prompt:
         result = asyncio.run(cli.run_single(prompt))
         if result is None:

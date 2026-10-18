@@ -1,4 +1,7 @@
-def get_system_prompt():
+from config.config import Config
+
+
+def get_system_prompt(config: Config):
     system_prompt = []
 
     system_prompt.append(_get_identity_section())
@@ -6,8 +9,10 @@ def get_system_prompt():
     system_prompt.append(_get_security_section())
     system_prompt.append(_get_operational_section())
 
-    return "\n\n".join(system_prompt)
+    if config.user_instructions:
+        system_prompt.append(_get_user_instructions_section(config.user_instructions))
 
+    return "\n\n".join(system_prompt)
 
 
 def _get_identity_section() -> str:
@@ -39,6 +44,7 @@ def _get_agents_md_section() -> str:
     - More-deeply-nested AGENTS.md files take precedence in the case of conflicting instructions.
     - Direct system/developer/user instructions (as part of a prompt) take precedence over AGENTS.md instructions.
 - The contents of the AGENTS.md file at the root of the repo and any directories from the CWD up to the root are included with the developer message and don't need to be re-read. When working in a subdirectory of CWD, or a directory outside the CWD, check for any AGENTS.md files that may be applicable."""
+
 
 def _get_security_section() -> str:
     """Generate security guidelines."""
@@ -134,3 +140,13 @@ If completing the user's task requires writing or modifying files, your code and
 - Do not waste tokens by re-reading files after calling `apply_patch` on them. The tool call will fail if it didn't work. The same goes for making folders, deleting folders, etc.
 - Do not add inline comments within code unless explicitly requested.
 - Do not use one-letter variable names unless explicitly requested."""
+
+
+def _get_user_instructions_section(instructions: str) -> str:
+    return f"""# Project Instructions
+
+The following instructions were provided by the project maintainers:
+
+{instructions}
+
+Follow these instructions carefully as they contain important context about this specific project."""
