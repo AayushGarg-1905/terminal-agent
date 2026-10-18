@@ -1,23 +1,17 @@
-from pathlib import Path
-
 from agent.events import AgentEvent, AgentEventType
-from client.llm_client import LLMClient
+from agent.session import Session
 from client.response_classes import StreamEventType, ToolCall, ToolResultMessage
 from config.config import Config
-from context.context_manager import ContextManager
-from tools.registry import create_default_registry
 import json
 
 class Agent:
     def __init__(self,config:Config):
         self.config = config
-        self.client = LLMClient(config)
-        self.context_manager = ContextManager(config=config)
-        self.tool_registry = create_default_registry()
+        self.session = Session(config)
 
     async def run(self, message: str):
         yield AgentEvent.agent_start(message)
-        self.context_manager.add_user_message(message)
+        self.session.context_manager.add_user_message(message)
 
         final_response: str | None = None
 
@@ -33,13 +27,15 @@ class Agent:
         max_turns = self.config.max_turns
         # messages = [{"role":"user","content":"write a short para on cricket"}]
         for turn_num in range(max_turns):
+            self.session.increment_turn()
+            
             response_text = ""
-            tool_schemas = self.tool_registry.get_schemas()
+            tool_schemas = self.session.tool_registry.get_schemas()
             tool_calls: list[ToolCall] = []
             tool_call_results: list[ToolResultMessage] = []
 
-            async for event in self.client.chat_completion(
-                self.context_manager.get_messages(),
+            async for event in self.session.client.chat_completion(
+                self.session.context_manager.get_messages(),
                 tools=tool_schemas if tool_schemas else None,
                 stream=True,
             ):
@@ -62,7 +58,7 @@ class Agent:
                 }
                 for tc in tool_calls
             ]
-            self.context_manager.add_assistant_message(
+            self.session.context_manager.add_assistant_message(
                 response_text or "", formatted_tool_calls or None
             )
 
@@ -76,7 +72,7 @@ class Agent:
                 yield AgentEvent.tool_call_start(
                     tool_call.call_id, tool_call.name, tool_call.arguments
                 )
-                result = await self.tool_registry.invoke(
+                result = await self.session.tool_registry.invoke(
                     tool_call.name, tool_call.arguments, self.config.cwd
                 )
 
@@ -93,7 +89,7 @@ class Agent:
                 )
 
             for tool_result in tool_call_results:
-                self.context_manager.add_tool_message(
+                self.session.context_manager.add_tool_message(
                     tool_result.tool_call_id, tool_result.content
                 )
 
@@ -101,6 +97,6 @@ class Agent:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        if self.client:
-            await self.client.close()
-            self.client = None
+        if self.session and self.session.client:
+            await self.session.client.close()
+            self.session = None

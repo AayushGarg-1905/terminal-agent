@@ -66,7 +66,7 @@ class CLI:
             elif event.type == AgentEventType.TOOL_CALL_START:
                 tool_name = event.data.get("name", "unknown tool")
                 tool_kind = None
-                tool = self.agent.tool_registry.get(tool_name)
+                tool = self.agent.session.tool_registry.get(tool_name)
                 if tool:
                     tool_kind = tool.kind.value
                 self.ui.tool_call_start(
@@ -78,7 +78,7 @@ class CLI:
             elif event.type == AgentEventType.TOOL_CALL_COMPLETE:
                 tool_name = event.data.get("name", "unknown tool")
                 tool_kind = None
-                tool = self.agent.tool_registry.get(tool_name)
+                tool = self.agent.session.tool_registry.get(tool_name)
                 if tool:
                     tool_kind = tool.kind.value
                 self.ui.tool_call_complete(
