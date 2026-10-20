@@ -9,7 +9,7 @@ from rich.text import Text
 from typing import Any
 from rich.panel import Panel
 from rich.table import Table
-
+import difflib
 from config.config import Config
 
 AGENT_THEME = Theme(
@@ -72,6 +72,30 @@ class UI:
     def stream_assistant_delta(self, content: str):
         self.console.print(content, end="", markup=False)
 
+    def _diff_text(self, diff, max_lines: int = 30) -> Text:
+        rows = diff.to_diff().splitlines()
+        out = Text(overflow="fold")
+
+        if not rows:
+            return Text("(no changes)", style="muted")
+
+        for line in rows[:max_lines]:
+            if line.startswith(("---", "+++")):
+                style = "dim"
+            elif line.startswith("@@"):
+                style = "cyan"
+            elif line.startswith("+"):
+                style = "green"
+            elif line.startswith("-"):
+                style = "red"
+            else:
+                style = "dim"
+            out.append(line + "\n", style=style)
+
+        if len(rows) > max_lines:
+            out.append(f"... +{len(rows) - max_lines} more lines", style="muted")
+        return out
+    
     def tool_call_start(
         self,
         call_id: str,
@@ -140,6 +164,7 @@ class UI:
         output: str,
         error: str | None,
         metadata: dict[str, Any] | None,
+        diff:str | None,
         truncated: bool,
     ) -> None:
         kind = getattr(tool_kind, "value", tool_kind)
@@ -203,7 +228,8 @@ class UI:
                 overflow="fold",
             ),
         )
-
+        if success and name == "write_file" and diff is not None:
+            details.add_row(Text("Diff"), self._diff_text(diff))
         panel = Panel(
             details,
             title=title,
